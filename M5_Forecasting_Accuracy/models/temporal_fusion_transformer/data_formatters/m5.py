@@ -16,34 +16,44 @@ class M5Formatter(GenericDataFormatter):
     """
 
     _column_definition = [
-      ('id', DataTypes.REAL_VALUED, InputTypes.ID),
+      ('id', DataTypes.CATEGORICAL, InputTypes.ID),
       ('sales', DataTypes.REAL_VALUED, InputTypes.TARGET),
         
-      ('d', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
-      ('event_name_2', DataTypes.CATEGORICAL, InputTypes.KNOWN_INPUT),
-      ('event_type_2', DataTypes.CATEGORICAL, InputTypes.KNOWN_INPUT),
-      ('event_name_1', DataTypes.CATEGORICAL, InputTypes.KNOWN_INPUT),
-      ('event_type_1', DataTypes.CATEGORICAL, InputTypes.KNOWN_INPUT),
+      ('d', DataTypes.CATEGORICAL, InputTypes.TIME),
+      ('event_name_2', DataTypes.CATEGORICAL, InputTypes.OBSERVED_INPUT),
+      ('event_type_2', DataTypes.CATEGORICAL, InputTypes.OBSERVED_INPUT),
+      ('event_name_1', DataTypes.CATEGORICAL, InputTypes.OBSERVED_INPUT),
+      ('event_type_1', DataTypes.CATEGORICAL, InputTypes.OBSERVED_INPUT),
       ('snap_WI', DataTypes.CATEGORICAL, InputTypes.KNOWN_INPUT),
       ('snap_CA', DataTypes.CATEGORICAL, InputTypes.KNOWN_INPUT),
       ('snap_TX', DataTypes.CATEGORICAL, InputTypes.KNOWN_INPUT),
         
-      ('price_momentum', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
-      ('price_momentum_m', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
-      ('price_momentum_y', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
-      ('tm_d', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
-      ('tm_w', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
-      ('tm_m', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
-      ('tm_y', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
-      ('tm_wm', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
-      ('tm_dw', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
-      ('tm_d', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
-      ('tm_d', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
-      ('tm_d', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
-      ('tm_d', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
-      ('tm_d', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+      ('price_momentum', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
+      ('price_momentum_m', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
+      ('price_momentum_y', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
+
+      ('price_max', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
+      ('price_min', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
+      ('price_std', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
+      ('price_mean', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
+      ('price_norm', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
+      ('price_nunique', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
+      ('sell_price', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
         
+      ('tm_d', DataTypes.CATEGORICAL, InputTypes.KNOWN_INPUT),
+      ('tm_w', DataTypes.CATEGORICAL, InputTypes.KNOWN_INPUT),
+      ('tm_m', DataTypes.CATEGORICAL, InputTypes.KNOWN_INPUT),
+      ('tm_y', DataTypes.CATEGORICAL, InputTypes.KNOWN_INPUT),
+      ('tm_wm', DataTypes.CATEGORICAL, InputTypes.KNOWN_INPUT),
+      ('tm_dw', DataTypes.CATEGORICAL, InputTypes.KNOWN_INPUT),
+      ('tm_w_end', DataTypes.CATEGORICAL, InputTypes.KNOWN_INPUT),
         
+      ('snap_TX', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+      ('snap_CA', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+      ('snap_WI', DataTypes.REAL_VALUED, InputTypes.OBSERVED_INPUT),
+        
+      ('item_nunique', DataTypes.CATEGORICAL, InputTypes.STATIC_INPUT),
+      ('release', DataTypes.CATEGORICAL, InputTypes.STATIC_INPUT), 
       ('item_id', DataTypes.CATEGORICAL, InputTypes.STATIC_INPUT), 
       ('dept_id', DataTypes.CATEGORICAL, InputTypes.STATIC_INPUT),
       ('cat_id', DataTypes.CATEGORICAL, InputTypes.STATIC_INPUT),
@@ -68,7 +78,7 @@ class M5Formatter(GenericDataFormatter):
     def get_num_encoder_steps(self):
         return self.get_fixed_params()['num_encoder_steps']
 
-    def split_data(self, df, valid_boundary=1315, test_boundary=1339):
+    def split_data(self, df, valid_boundary=1913-28, test_boundary=1913):
         """Splits data frame into training-validation-test data frames.
         This also calibrates scaling object, and transforms data for each split.
         Args:
@@ -81,10 +91,10 @@ class M5Formatter(GenericDataFormatter):
 
         print('Formatting train-valid-test splits.')
 
-        index = df['days_from_start']
+        index = df['d']
         train = df.loc[index < valid_boundary]
-        valid = df.loc[(index >= valid_boundary - 7) & (index < test_boundary)]
-        test = df.loc[index >= test_boundary - 7]
+        valid = df.loc[(index >= valid_boundary) & (index < test_boundary)]
+        test = df.loc[index >= test_boundary]
 
         self.set_scalers(train)
 
@@ -221,8 +231,8 @@ class M5Formatter(GenericDataFormatter):
         """Returns fixed model parameters for experiments."""
 
         fixed_params = {
-            'total_time_steps': 8 * 24,
-            'num_encoder_steps': 7 * 24,
+            'total_time_steps': 1913,
+            'num_encoder_steps': 1913 - 28,
             'num_epochs': 100,
             'early_stopping_patience': 5,
             'multiprocessing_workers': 5
