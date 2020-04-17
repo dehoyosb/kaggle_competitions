@@ -144,7 +144,7 @@ class M5Formatter(GenericDataFormatter):
         num_classes = []
         for col in categorical_inputs:
             # Set all to str so that we don't have mixed integer/string columns
-            srs = df[col].apply(str)
+            srs = df[col].astype(str)
             categorical_scalers[col] = sklearn.preprocessing.LabelEncoder().fit(
               srs.values)
             num_classes.append(srs.nunique())
@@ -181,14 +181,16 @@ class M5Formatter(GenericDataFormatter):
 
         # Transform real inputs per entity
         df_list = []
+        print(self._time_steps)
         for identifier, sliced in df.groupby(id_col):
-
-          # Filter out any trajectories that are too short
-          if len(sliced) >= self._time_steps:
-            sliced_copy = sliced.copy()
-            sliced_copy[real_inputs] = self._real_scalers[identifier].transform(
-                sliced_copy[real_inputs].values)
-            df_list.append(sliced_copy)
+            print(len(sliced))
+            # Filter out any trajectories that are too short
+            if len(sliced) >= self._time_steps:
+                
+                sliced_copy = sliced.copy()
+                sliced_copy[real_inputs] = self._real_scalers[identifier].transform(
+                    sliced_copy[real_inputs].values)
+                df_list.append(sliced_copy)
 
         output = pd.concat(df_list, axis=0)
 
