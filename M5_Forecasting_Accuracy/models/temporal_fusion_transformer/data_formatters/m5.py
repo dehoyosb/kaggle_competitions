@@ -233,8 +233,8 @@ class M5Formatter(GenericDataFormatter):
         """Returns fixed model parameters for experiments."""
 
         fixed_params = {
-            'total_time_steps': 1913,
-            'num_encoder_steps': 1913 - 28,
+            'total_time_steps': 331 + 28,
+            'num_encoder_steps': 331,
             'num_epochs': 100,
             'early_stopping_patience': 5,
             'multiprocessing_workers': 5
