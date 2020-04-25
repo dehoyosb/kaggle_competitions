@@ -4,7 +4,7 @@ import numpy as np
 from torch.utils.data import Dataset, DataLoader
 from utils.utils import get_single_col_by_input_type
 from utils.utils import extract_cols_from_data_type
-from data_formatters.m5 import ElectricityFormatter
+from data_formatters.m5 import M5Formatter
 from data_formatters.base import DataTypes, InputTypes
 
 class TFTDataset(Dataset, M5Formatter):
