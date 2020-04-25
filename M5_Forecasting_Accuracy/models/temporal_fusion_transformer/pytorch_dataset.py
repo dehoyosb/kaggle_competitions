@@ -1,9 +1,10 @@
+
 import pandas as pd
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
 from utils.utils import get_single_col_by_input_type
 from utils.utils import extract_cols_from_data_type
-from data_formatters.m5 import M5Formatter
+from data_formatters.m5 import ElectricityFormatter
 from data_formatters.base import DataTypes, InputTypes
 
 class TFTDataset(Dataset, M5Formatter):
@@ -11,7 +12,7 @@ class TFTDataset(Dataset, M5Formatter):
 
     def __init__(self, 
                  data_df):
-        super(ElectricityFormatter, self).__init__()
+        super(M5Formatter, self).__init__()
         """
         Args:
             csv_file (string): Path to the csv file with annotations.
@@ -37,13 +38,29 @@ class TFTDataset(Dataset, M5Formatter):
         self.num_encoder_steps = self.get_num_encoder_steps()
         
         self.data_index = self.get_index_filtering()
+        self.group_size = self.data.groupby([self.id_col]).apply(lambda x: x.shape[0]).mean()
+        self.data_index = self.data_index[self.data_index.end_rel < self.group_size].reset_index()
         
     def get_index_filtering(self):
         
-        unique_indices = self.data[self.id_col].unique()
-        dict_index = {i: index_name for i, index_name in enumerate(unique_indices)}
+        g = self.data.groupby([self.id_col])
         
-        return dict_index
+        df_index_abs = g[[self.target_col]].transform(lambda x: x.index+self.lookback) \
+                        .reset_index() \
+                        .rename(columns={'index':'init_abs',
+                                         self.target_col:'end_abs'})
+        df_index_rel_init = g[[self.target_col]].transform(lambda x: x.reset_index(drop=True).index) \
+                        .rename(columns={self.target_col:'init_rel'})
+        df_index_rel_end = g[[self.target_col]].transform(lambda x: x.reset_index(drop=True).index+self.lookback) \
+                        .rename(columns={self.target_col:'end_rel'})
+        df_total_count = g[[self.target_col]].transform(lambda x: x.shape[0] - self.lookback + 1) \
+                        .rename(columns = {self.target_col:'group_count'})
+        
+        return pd.concat([df_index_abs, 
+                          df_index_rel_init,
+                          df_index_rel_end,
+                          self.data[[self.id_col]], 
+                          df_total_count], axis = 1).reset_index(drop = True)
 
     def __len__(self):
         # In this case, the length of the dataset is not the length of the training data, 
@@ -52,7 +69,7 @@ class TFTDataset(Dataset, M5Formatter):
 
     def __getitem__(self, idx):
         
-        data_index = self.data[self.data[self.id_col] == self.data_index[idx]]
+        data_index = self.data.iloc[self.data_index.init_abs.iloc[idx]:self.data_index.end_abs.iloc[idx]]
         
         data_map = {}
         for k in self.col_mappings:
