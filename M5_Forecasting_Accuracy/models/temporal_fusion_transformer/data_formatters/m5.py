@@ -96,7 +96,6 @@ class M5Formatter(GenericDataFormatter):
         valid = df.loc[(index >= valid_boundary) & (index < test_boundary)]
         test = df.loc[index >= test_boundary]
 
-        print('Creating the Scalers')
         self.set_scalers(train)
         
         print('Transforming the data')
@@ -120,12 +119,13 @@ class M5Formatter(GenericDataFormatter):
             DataTypes.REAL_VALUED, column_definitions,
             {InputTypes.ID, InputTypes.TIME})
 
+        print('Real Scalers')
         # Initialise scaler caches
         self._real_scalers = {}
         self._target_scaler = {}
         identifiers = []
         for identifier, sliced in df.groupby(id_column):
-
+            print('{} - {}'.format(identifier, len(sliced)))
             if len(sliced) >= self._time_steps:
 
                 data = sliced[real_inputs].values
@@ -142,11 +142,13 @@ class M5Formatter(GenericDataFormatter):
             DataTypes.CATEGORICAL, column_definitions,
             {InputTypes.ID, InputTypes.TIME})
 
+        print('Categorical Scalers')
         categorical_scalers = {}
         num_classes = []
         for col in categorical_inputs:
+            print(col)
             # Set all to str so that we don't have mixed integer/string columns
-            srs = df[col].astype(str)
+            srs = df[col]#.astype(str)
             categorical_scalers[col] = sklearn.preprocessing.LabelEncoder().fit(
               srs.values)
             num_classes.append(srs.nunique())
@@ -166,7 +168,7 @@ class M5Formatter(GenericDataFormatter):
         Returns:
           Transformed data frame.
         """
-
+        print('Transforming the training data...')
         if self._real_scalers is None and self._cat_scalers is None:
             raise ValueError('Scalers have not been set!')
 
@@ -183,11 +185,9 @@ class M5Formatter(GenericDataFormatter):
 
         # Transform real inputs per entity
         df_list = []
-        print('Time Steps')
-        print(self._time_steps)
-        print('----------------')
+        print('Real Features Transform')
         for identifier, sliced in df.groupby(id_col):
-            print(len(sliced))
+            print('{} - {}'.format(identifier, len(sliced)))
             # Filter out any trajectories that are too short
             if len(sliced) >= self._time_steps:
                 
@@ -198,9 +198,11 @@ class M5Formatter(GenericDataFormatter):
 
         output = pd.concat(df_list, axis=0)
 
+        print('Categorical Features Transform')
         # Format categorical inputs
         for col in categorical_inputs:
-            string_df = df[col].apply(str)
+            print(col)
+            string_df = df[col]#.apply(str)
             output[col] = self._cat_scalers[col].transform(string_df)
 
         return output
