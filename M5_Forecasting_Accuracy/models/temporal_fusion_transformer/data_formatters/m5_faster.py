@@ -120,23 +120,25 @@ class M5Formatter(GenericDataFormatter):
             {InputTypes.ID, InputTypes.TIME})
 
         print('Real Scalers')
-        # Initialise scaler caches
-        self._real_scalers = {}
-        self._target_scaler = {}
-        identifiers = []
-        for identifier, sliced in df.groupby(id_column):
-            print('{} - {}'.format(identifier, len(sliced)))
-            if len(sliced) >= self._time_steps:
+        def create_scalers(x):
 
-                data = sliced[real_inputs].values
-                targets = sliced[[target_column]].values
-                self._real_scalers[identifier] \
-                = sklearn.preprocessing.StandardScaler().fit(data)
+            data = x[real_inputs].values
+            targets = x[[target_column]].values
 
-                self._target_scaler[identifier] \
-                = sklearn.preprocessing.StandardScaler().fit(targets)
-                identifiers.append(identifier)
+            real_scaler = StandardScaler().fit(data)
+            target_scaler = StandardScaler().fit(targets)
 
+            return real_scaler, target_scaler
+        
+        scalers = df.groupby(id_column).apply(lambda x: pd.Series(create_scalers(x)),
+                                              meta=[(0, object),
+                                                    (1, object)]).compute().rename(columns={0:'real',
+                                                                                            1:'target'})
+        self._real_scalers = scalers.real.to_dict()
+        self._target_scaler = scalers.target.to_dict()
+        # Extract identifiers in case required
+        self.identifiers = scalers.index.values
+        
         # Format categorical scalers
         categorical_inputs = extract_cols_from_data_type(
             DataTypes.CATEGORICAL, column_definitions,
@@ -157,8 +159,7 @@ class M5Formatter(GenericDataFormatter):
         self._cat_scalers = categorical_scalers
         self._num_classes_per_cat_input = num_classes
 
-        # Extract identifiers in case required
-        self.identifiers = identifiers
+        
 
     def transform_inputs(self, df):
         """Performs feature transformations.
