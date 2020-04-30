@@ -3,7 +3,7 @@ from utils.utils import get_single_col_by_input_type
 from utils.utils import extract_cols_from_data_type
 from .base import GenericDataFormatter
 from .base import DataTypes, InputTypes
-import sklearn.preprocessing
+from sklearn.preprocessing import StandardScaler, LabelEncoder
 
 class M5Formatter(GenericDataFormatter):
     """Defines and formats data for the electricity dataset.
@@ -143,22 +143,22 @@ class M5Formatter(GenericDataFormatter):
         categorical_inputs = extract_cols_from_data_type(
             DataTypes.CATEGORICAL, column_definitions,
             {InputTypes.ID, InputTypes.TIME})
-
+        
         print('Categorical Scalers')
         categorical_scalers = {}
         num_classes = []
         for col in categorical_inputs:
-            print(col)
-            # Set all to str so that we don't have mixed integer/string columns
-            srs = df[col]#.astype(str)
-            categorical_scalers[col] = sklearn.preprocessing.LabelEncoder().fit(
+            srs = m5_data[col]
+            if srs.dtype.name != 'category':
+                # Set all to str so that we don't have mixed integer/string columns
+                srs = srs.astype('category')
+            categorical_scalers[col] = LabelEncoder().fit(
               srs.values)
             num_classes.append(srs.nunique())
 
         # Set categorical scaler outputs
         self._cat_scalers = categorical_scalers
         self._num_classes_per_cat_input = num_classes
-
         
 
     def transform_inputs(self, df):
