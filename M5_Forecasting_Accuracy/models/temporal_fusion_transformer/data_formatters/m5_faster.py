@@ -134,10 +134,13 @@ class M5Formatter(GenericDataFormatter):
         #                                      meta=[(0, object),
         #                                            (1, object)]).compute().rename(columns={0:'real',
         #                                                                                    1:'target'})
-        scalers = df.groupby(id_column).apply(lambda x: pd.Series(create_scalers(x)),
-        #                                      meta=[(0, object),
-        #                                            (1, object)]).compute().rename(columns={0:'real',
-        #                                                                                    1:'target'})
+        scalers = m5_data[[id_column] + 
+                          real_inputs +
+                          [target_column]].groupby(id_column) \
+        .apply(lambda x: pd.Series(create_real_scalers(x))) \
+        .rename(columns = {0:'real',
+                           1: 'target'})
+
         self._real_scalers = scalers.real.to_dict()
         self._target_scaler = scalers.target.to_dict()
         # Extract identifiers in case required
