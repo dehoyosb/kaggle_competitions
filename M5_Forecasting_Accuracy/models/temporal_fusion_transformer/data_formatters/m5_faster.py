@@ -71,6 +71,18 @@ class M5Formatter(GenericDataFormatter):
         self._num_classes_per_cat_input = None
         self._time_steps = self.get_fixed_params()['total_time_steps']
         self._num_encoder_steps = self.get_fixed_params()['num_encoder_steps']
+        # Extract relevant columns
+        self._column_definitions = self.get_column_definition()
+        self._id_col = get_single_col_by_input_type(InputTypes.ID,
+                                                    self._column_definitions)
+        self._target_column = get_single_col_by_input_type(InputTypes.TARGET,
+                                                           self._column_definitions)
+        self._real_inputs = extract_cols_from_data_type(
+                                                    DataTypes.REAL_VALUED, self._column_definitions,
+                                                    {InputTypes.ID, InputTypes.TIME})
+        self._categorical_inputs = extract_cols_from_data_type(
+                                DataTypes.CATEGORICAL, self._column_definitions,
+                                {InputTypes.ID, InputTypes.TIME})
         
     def get_time_steps(self):
         return self.get_fixed_params()['total_time_steps']
@@ -92,51 +104,35 @@ class M5Formatter(GenericDataFormatter):
         print('Formatting train-valid-test splits.')
 
         index = df['d']
-        train = df.loc[index < valid_boundary]
-        valid = df.loc[(index >= valid_boundary) & (index < test_boundary)]
-        test = df.loc[index >= test_boundary]
+        train_index = df.loc[index < valid_boundary].index
+        valid_index = df.loc[(index >= valid_boundary) & (index < test_boundary)].index
+        test_index = df.loc[index >= test_boundary].index
 
-        self.set_scalers(train)
+        self.set_scalers(df)
+        data = self.transform_inputs(df)
         
-        print('Transforming the data')
-        return (self.transform_inputs(data) for data in [train, valid, test])
+        return (data.iloc[index_split] for index_split in [train_index, valid_index, test_index])
+        #return data
 
     def set_scalers(self, df):
         """Calibrates scalers using the data supplied.
             Args:
               df: Data to use to calibrate scalers.
         """
-        print('Setting scalers with training data...')
-
-        column_definitions = self.get_column_definition()
-        id_column = get_single_col_by_input_type(InputTypes.ID,
-                                                       column_definitions)
-        target_column = get_single_col_by_input_type(InputTypes.TARGET,
-                                                           column_definitions)
-
-        # Format real scalers
-        real_inputs = extract_cols_from_data_type(
-            DataTypes.REAL_VALUED, column_definitions,
-            {InputTypes.ID, InputTypes.TIME})
-
+        print('Setting scalers with all the data data...')
         print('Real Scalers')
-        def create_scalers(x):
+        def create_real_scalers(x):
 
-            data = x[real_inputs].values
-            targets = x[[target_column]].values
+            data = x[self._real_inputs].values
+            targets = x[[self._target_column]].values
 
             real_scaler = StandardScaler().fit(data)
             target_scaler = StandardScaler().fit(targets)
 
             return real_scaler, target_scaler
         
-        #scalers = df.groupby(id_column).apply(lambda x: pd.Series(create_scalers(x)),
-        #                                      meta=[(0, object),
-        #                                            (1, object)]).compute().rename(columns={0:'real',
-        #                                                                                    1:'target'})
-        scalers = m5_data[[id_column] + 
-                          real_inputs +
-                          [target_column]].groupby(id_column) \
+        scalers = df[[self._id_col] + 
+                      self._real_inputs].groupby(self._id_col) \
         .apply(lambda x: pd.Series(create_real_scalers(x))) \
         .rename(columns = {0:'real',
                            1: 'target'})
@@ -146,16 +142,11 @@ class M5Formatter(GenericDataFormatter):
         # Extract identifiers in case required
         self.identifiers = scalers.index.values
         
-        # Format categorical scalers
-        categorical_inputs = extract_cols_from_data_type(
-            DataTypes.CATEGORICAL, column_definitions,
-            {InputTypes.ID, InputTypes.TIME})
-        
         print('Categorical Scalers')
         categorical_scalers = {}
         num_classes = []
-        for col in categorical_inputs:
-            srs = m5_data[col]
+        for col in self._categorical_inputs:
+            srs = df[col]
             if srs.dtype.name != 'category':
                 # Set all to str so that we don't have mixed integer/string columns
                 srs = srs.astype('category')
@@ -176,46 +167,20 @@ class M5Formatter(GenericDataFormatter):
         Returns:
           Transformed data frame.
         """
-        print('Transforming the training data...')
+        print('Transforming all the data...')
         if self._real_scalers is None and self._cat_scalers is None:
             raise ValueError('Scalers have not been set!')
-
-        # Extract relevant columns
-        column_definitions = self.get_column_definition()
-        id_col = get_single_col_by_input_type(InputTypes.ID,
-                                                    column_definitions)
-        real_inputs = extract_cols_from_data_type(
-            DataTypes.REAL_VALUED, column_definitions,
-            {InputTypes.ID, InputTypes.TIME})
-        categorical_inputs = extract_cols_from_data_type(
-            DataTypes.CATEGORICAL, column_definitions,
-            {InputTypes.ID, InputTypes.TIME})
-
-        # Transform real inputs per entity
-        df_list = []
-        print('Real Features Transform')
-        for identifier, sliced in df.groupby(id_col):
-            print('{} - {}'.format(identifier, len(sliced)))
-            # Filter out any trajectories that are too short
-            if len(sliced) >= self._time_steps:
-                
-                sliced_copy = sliced.copy()
-                sliced_copy[real_inputs] = self._real_scalers[identifier].transform(
-                    sliced_copy[real_inputs].values)
-                df_list.append(sliced_copy)
-
-        output = pd.concat(df_list, axis=0)
         
-        output = df[[id_col] + 
-                     real_inputs].groupby(id_column) \
-        .apply(lambda x: pd.DataFrame(self._real_scalers[x.name].transform(x[real_inputs].values)))
+        print('Real Features Transform')
+        output = df[[self._id_col] + 
+                     self._real_inputs].groupby(self._id_col) \
+        .apply(lambda x: pd.DataFrame(self._real_scalers[x.name].transform(x[self._real_inputs].values)))
         output = output.droplevel(level=None).reset_index()
-        output.columns = [id_col] + real_inputs 
+        output.columns = [self._id_col] + self._real_inputs 
 
         print('Categorical Features Transform')
         # Format categorical inputs
-        for col in categorical_inputs:
-            print(col)
+        for col in self._categorical_inputs:
             string_df = df[col]#.apply(str)
             output[col] = self._cat_scalers[col].transform(string_df)
 
