@@ -130,10 +130,14 @@ class M5Formatter(GenericDataFormatter):
 
             return real_scaler, target_scaler
         
+        #scalers = df.groupby(id_column).apply(lambda x: pd.Series(create_scalers(x)),
+        #                                      meta=[(0, object),
+        #                                            (1, object)]).compute().rename(columns={0:'real',
+        #                                                                                    1:'target'})
         scalers = df.groupby(id_column).apply(lambda x: pd.Series(create_scalers(x)),
-                                              meta=[(0, object),
-                                                    (1, object)]).compute().rename(columns={0:'real',
-                                                                                            1:'target'})
+        #                                      meta=[(0, object),
+        #                                            (1, object)]).compute().rename(columns={0:'real',
+        #                                                                                    1:'target'})
         self._real_scalers = scalers.real.to_dict()
         self._target_scaler = scalers.target.to_dict()
         # Extract identifiers in case required
@@ -198,6 +202,12 @@ class M5Formatter(GenericDataFormatter):
                 df_list.append(sliced_copy)
 
         output = pd.concat(df_list, axis=0)
+        
+        output = df[[id_col] + 
+                     real_inputs].groupby(id_column) \
+        .apply(lambda x: pd.DataFrame(self._real_scalers[x.name].transform(x[real_inputs].values)))
+        output = output.droplevel(level=None).reset_index()
+        output.columns = [id_col] + real_inputs 
 
         print('Categorical Features Transform')
         # Format categorical inputs
