@@ -104,14 +104,14 @@ class M5Formatter(GenericDataFormatter):
         print('Formatting train-valid-test splits.')
 
         index = df['d']
-        train_index = df.loc[index < valid_boundary].index
-        valid_index = df.loc[(index >= valid_boundary) & (index < test_boundary)].index
-        test_index = df.loc[index >= test_boundary].index
+        train = df.loc[index < valid_boundary]
+        valid = df.loc[(index >= valid_boundary) & (index < test_boundary)]
+        test = df.loc[index >= test_boundary]
 
-        self.set_scalers(df)
-        data = self.transform_inputs(df)
+        self.set_scalers(train)
         
-        return (data.iloc[index_split] for index_split in [train_index, valid_index, test_index])
+        return (self.transform_inputs(data_split) for data_split in [train, valid, test])
+        #return (data.iloc[index_split] for index_split in [train_index, valid_index, test_index])
         #return data
 
     def set_scalers(self, df):
@@ -132,7 +132,7 @@ class M5Formatter(GenericDataFormatter):
             return real_scaler, target_scaler
         
         scalers = df[[self._id_col] + 
-                      self._real_inputs].groupby(self._id_col) \
+                      self._real_inputs].groupby(self._id_col, observed = True) \
         .apply(lambda x: pd.Series(create_real_scalers(x))) \
         .rename(columns = {0:'real',
                            1: 'target'})
@@ -173,7 +173,7 @@ class M5Formatter(GenericDataFormatter):
         
         print('Real Features Transform')
         output = df[[self._id_col] + 
-                     self._real_inputs].groupby(self._id_col) \
+                     self._real_inputs].groupby(self._id_col, observed = True) \
         .apply(lambda x: pd.DataFrame(self._real_scalers[x.name].transform(x[self._real_inputs].values)))
         output = output.droplevel(level=None).reset_index()
         output.columns = [self._id_col] + self._real_inputs 
