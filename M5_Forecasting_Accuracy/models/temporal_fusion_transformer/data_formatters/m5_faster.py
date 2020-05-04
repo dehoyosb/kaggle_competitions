@@ -90,7 +90,8 @@ class M5Formatter(GenericDataFormatter):
     def get_num_encoder_steps(self):
         return self.get_fixed_params()['num_encoder_steps']
 
-    def split_data(self, df, valid_boundary=1913-(72*2 + 28)+1, test_boundary=1913-72+1):
+    #def split_data(self, df, valid_boundary=1913-(72*2 + 28)+1, test_boundary=1913-72+1):
+    def split_data(self, df, valid_boundary = 1913 - (28) + 1):
         """Splits data frame into training-validation-test data frames.
         This also calibrates scaling object, and transforms data for each split.
         Args:
@@ -105,12 +106,13 @@ class M5Formatter(GenericDataFormatter):
 
         index = df['d']
         train = df.loc[index < valid_boundary]
-        valid = df.loc[(index >= valid_boundary) & (index < test_boundary)]
-        test = df.loc[index >= test_boundary]
+        valid = df.loc[(index >= valid_boundary)]
+        #valid = df.loc[(index >= valid_boundary) & (index < test_boundary)]
+        #test = df.loc[index >= test_boundary]
 
         self.set_scalers(train)
         
-        return (self.transform_inputs(data_split) for data_split in [train, valid, test])
+        return (self.transform_inputs(data_split) for data_split in [train, valid])#, test])
         #return (data.iloc[index_split] for index_split in [train_index, valid_index, test_index])
         #return data
 
@@ -218,8 +220,8 @@ class M5Formatter(GenericDataFormatter):
         """Returns fixed model parameters for experiments."""
 
         fixed_params = {
-            'total_time_steps': 72 + 28,
-            'num_encoder_steps': 72,
+            'total_time_steps': 72,
+            'num_encoder_steps': 72 - 28,
             'num_epochs': 100,
             'early_stopping_patience': 5,
             'multiprocessing_workers': 5
