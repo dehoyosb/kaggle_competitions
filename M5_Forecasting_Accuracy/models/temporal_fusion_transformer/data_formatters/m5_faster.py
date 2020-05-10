@@ -185,6 +185,8 @@ class M5Formatter(GenericDataFormatter):
         for col in self._categorical_inputs:
             string_df = df[col]#.apply(str)
             output[col] = self._cat_scalers[col].transform(string_df)
+            
+        output['d'] = df['d']
 
         return output
 
