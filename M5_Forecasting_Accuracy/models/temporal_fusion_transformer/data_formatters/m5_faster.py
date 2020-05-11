@@ -91,7 +91,8 @@ class M5Formatter(GenericDataFormatter):
         return self.get_fixed_params()['num_encoder_steps']
 
     #def split_data(self, df, valid_boundary=1913-(72*2 + 28)+1, test_boundary=1913-72+1):
-    def split_data(self, df, valid_boundary = 1913 - (28) + 1):
+    #def split_data(self, df, valid_boundary = 1913 - (28) + 1):
+    def split_data(self, df, valid_boundary = 0.8):
         """Splits data frame into training-validation-test data frames.
         This also calibrates scaling object, and transforms data for each split.
         Args:
@@ -104,15 +105,18 @@ class M5Formatter(GenericDataFormatter):
 
         print('Formatting train-valid-test splits.')
 
-        index = df['d']
-        train = df.loc[index < valid_boundary]
-        valid = df.loc[(index >= valid_boundary)]
-        #valid = df.loc[(index >= valid_boundary) & (index < test_boundary)]
-        #test = df.loc[index >= test_boundary]
-
-        self.set_scalers(train)
+        #index = df['d']
+        #train = df.loc[index < valid_boundary]
+        #valid = df.loc[(index >= valid_boundary)]
         
-        return (self.transform_inputs(data_split) for data_split in [train, valid])#, test])
+        unique_prod = df[self._id_col].unique()
+        train = df[df[self._id_col].isin(unique_prod[:int(len(unique_prod)*valid_boundary)])]
+        valid = df[df[self._id_col].isin(unique_prod[int(len(unique_prod)*valid_boundary):])]
+        test = df.loc[df['d'] >= df['d'].max() - self._num_encoder_steps]
+        
+        self.set_scalers(df)
+        
+        return (self.transform_inputs(data_split) for data_split in [train, valid, test])#, test])
         #return (data.iloc[index_split] for index_split in [train_index, valid_index, test_index])
         #return data
 
